@@ -39,16 +39,35 @@ class Filter:
          self.flowGraph.add_edge(routerSrc, nextHop)
 
    def getAvgBytes(self):
-      
+      totalBytesNow = 0
+      for (key, value) in self.data.items():
+         totalBytesNow += value[L3_BYTES]
+      self.avgByteGraph.append(totalBytesNow / len(self.data))    
+      if len(self.avgByteGraph) > 50:
+         self.avgByteGraph = self.avgByteGraph[-50:0]
+        
+      return self.avgByteGraph 
       
    def getAvgFlowLength(self):
+      totalLength = 0
+      for (key, value) in self.data.items():
+         totalLength += (value[END] - value[START])
+      self.avgLenGraph.append(totalLength / len(self.data))
+      if len(self.avgLenGraph) > 50:
+         self.avgLenGraph = self.avgLenGraph[-50:0]
+      return self.avgLenGraph
       
-   
-   def getNumOfFlows(self):
-      return self.numFlowsGraph   
-
    def generateGraphs(self):
-      return [ self.getAvgBytes(), self.getAvgFlowLength(), self.getNumOfFlows() ]
+      return [ self.getAvgBytes(), self.getAvgFlowLength(), self.numFlowsGraph ]
+
+   def getKey(self, recPayload):
+      srcIP = recPayload[0]
+      dstIP = recPayload[1]
+      srcPort = recPayload[9]
+      dstPort = recPayload[10]
+      ipType = recPayload[13]
+      tos = recPayload[14]
+      return (srcIP, dstIP, srcPort, dstPort, ipType, tos)    
 
    def update(self, nodeIndex):
      
@@ -65,7 +84,7 @@ class Filter:
             start = HDR_LEN + (idx * REC_LEN)
             end = start + REC_LEN
             recPayload = list(unpack("!LLLHHLLLLHHBBBBHHBBHL", self.buffer[start:end]))
-            self.updateMetrics(getKey(recPayload), recPayload)
+            self.updateMetrics(self.getKey(recPayload), recPayload)
             self.lastTwentyRecords.append(recPayload)
             if len(self.lastTwentyRecords) > 20:
                self.lastTwentyRecords = self.lastTwentyRecords[-20:]          
@@ -81,6 +100,5 @@ class Filter:
             self.data[unique][L3_BYTES] += record[L3_BYTES]
             self.data[unique][END] = record[END]
       else: 
-         self.data[unique] = record      
-     
+         self.data[unique] = record           
      
